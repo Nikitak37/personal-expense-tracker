@@ -1,0 +1,227 @@
+
+import csv
+import os
+from collections import defaultdict
+
+FILE_NAME = "expenses.csv"
+FIELDS = ["amount", "category", "description"]
+
+
+def load_expenses():
+    """Load saved expenses from the CSV file."""
+    expenses = []
+
+    if not os.path.exists(FILE_NAME):
+        return expenses
+
+    try:
+        with open(FILE_NAME, "r", newline="", encoding="utf-8") as file:
+            reader = csv.DictReader(file)
+
+            for row in reader:
+                expenses.append({
+                    "amount": float(row["amount"]),
+                    "category": row["category"],
+                    "description": row["description"]
+                })
+
+    except (ValueError, KeyError, csv.Error, OSError) as error:
+        print(f"Warning: Could not read expense file: {error}")
+
+    return expenses
+
+
+def save_expenses(expenses):
+    """Save all expenses to the CSV file."""
+    try:
+        with open(FILE_NAME, "w", newline="", encoding="utf-8") as file:
+            writer = csv.DictWriter(file, fieldnames=FIELDS)
+            writer.writeheader()
+            writer.writerows(expenses)
+
+        return True
+
+    except OSError as error:
+        print(f"Error saving expenses: {error}")
+        return False
+
+
+def get_amount(prompt):
+    """Ask for a valid positive monetary amount."""
+    while True:
+        try:
+            amount = float(input(prompt))
+
+            if amount <= 0:
+                print("Amount must be greater than zero.")
+                continue
+
+            return round(amount, 2)
+
+        except ValueError:
+            print("Please enter a valid number, such as 150 or 99.50.")
+
+
+def add_expense(expenses):
+    """Add a new expense."""
+    amount = get_amount("Enter amount (Rs.): ")
+
+    category = input(
+        "Enter category (Food/Travel/Bills/Shopping/Other): "
+    ).strip()
+
+    if not category:
+        print("Category cannot be empty.")
+        return
+
+    description = input("Enter description: ").strip()
+
+    expense = {
+        "amount": amount,
+        "category": category.title(),
+        "description": description or "No description"
+    }
+
+    expenses.append(expense)
+
+    if save_expenses(expenses):
+        print("Expense added and saved successfully!")
+    else:
+        expenses.pop()
+        print("Expense was not added because saving failed.")
+
+
+def view_expenses(expenses):
+    """Display all recorded expenses."""
+    if not expenses:
+        print("\nNo expenses recorded yet.")
+        return
+
+    print("\n" + "=" * 65)
+    print(f"{'No.':<5}{'Amount (Rs.)':<17}{'Category':<16}Description")
+    print("=" * 65)
+
+    for number, expense in enumerate(expenses, start=1):
+        print(
+            f"{number:<5}"
+            f"{expense['amount']:<17.2f}"
+            f"{expense['category']:<16}"
+            f"{expense['description']}"
+        )
+
+    print("=" * 65)
+
+
+def show_summary(expenses):
+    """Calculate total spending and category-wise expenses."""
+    if not expenses:
+        print("\nNo expenses to summarize.")
+        return
+
+    total = sum(item["amount"] for item in expenses)
+    categories = defaultdict(float)
+
+    for item in expenses:
+        categories[item["category"]] += item["amount"]
+
+    print("\n--- Expense Summary ---")
+    print(f"Total expenses: Rs. {total:.2f}")
+    print(f"Number of expenses: {len(expenses)}")
+
+    print("\nSpending by category:")
+
+    for category, amount in sorted(categories.items()):
+        print(f"{category}: Rs. {amount:.2f}")
+
+
+def check_budget(expenses):
+    """Compare total spending with a user-entered budget."""
+    budget = get_amount("Enter your budget (Rs.): ")
+    total = sum(item["amount"] for item in expenses)
+    remaining = budget - total
+
+    print("\n--- Budget Report ---")
+    print(f"Your budget: Rs. {budget:.2f}")
+    print(f"Total spent: Rs. {total:.2f}")
+    print(f"Remaining: Rs. {remaining:.2f}")
+
+    if remaining < 0:
+        print(f"Warning! You exceeded your budget by Rs. {-remaining:.2f}.")
+    else:
+        print("You are within your budget.")
+
+
+def delete_expense(expenses):
+    """Delete an expense by its displayed number."""
+    if not expenses:
+        print("\nNo expenses available to delete.")
+        return
+
+    view_expenses(expenses)
+
+    try:
+        number = int(input("Enter the expense number to delete: "))
+
+        if number < 1 or number > len(expenses):
+            print("Invalid expense number.")
+            return
+
+    except ValueError:
+        print("Please enter a whole number.")
+        return
+
+    removed = expenses.pop(number - 1)
+
+    if save_expenses(expenses):
+        print(
+            f"Deleted {removed['description']} "
+            f"(Rs. {removed['amount']:.2f})."
+        )
+    else:
+        expenses.insert(number - 1, removed)
+        print("Could not save changes. The expense was restored.")
+
+
+def main():
+    """Main menu of the Expense Tracker."""
+    expenses = load_expenses()
+
+    print("Welcome to the Personal Expense Tracker!")
+
+    while True:
+        print("\n========== MAIN MENU ==========")
+        print("1. Add Expense")
+        print("2. View All Expenses")
+        print("3. Show Expense Summary")
+        print("4. Check Budget")
+        print("5. Delete Expense")
+        print("6. Exit")
+        print("===============================")
+
+        choice = input("Choose an option (1-6): ").strip()
+
+        if choice == "1":
+            add_expense(expenses)
+
+        elif choice == "2":
+            view_expenses(expenses)
+
+        elif choice == "3":
+            show_summary(expenses)
+
+        elif choice == "4":
+            check_budget(expenses)
+
+        elif choice == "5":
+            delete_expense(expenses)
+
+        elif choice == "6":
+            print("Thank you for using the Expense Tracker!")
+            break
+
+        else:
+            print("Invalid choice. Please select a number from 1 to 6.")
+
+
+if __name__ == "__main__":
+    main()
